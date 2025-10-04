@@ -1,10 +1,14 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from typing import List
 from typing import Dict, Any
+import io
 import logging
 
 import cv2
 import numpy as np
+from PIL import Image
+import pillow_heif
+from .image_processing import process_face
 
 # Logging to see feedback in terminal
 logging.basicConfig(level=logging.INFO)
@@ -13,14 +17,14 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 def detect_cube_state(images: List[np.ndarray]) -> Dict[str, Any]:
-    
-    # Detects the color of each sticker on each face of the Rubik's cube, and returns the cube state.
+
+    # Detects the colour of each sticker on each face of the Rubik's cube, and returns the cube state.
     cube_state = {}
     for i, img in enumerate(images):
-        logger.info(f"Processing image {i+1} with shape {img.shape}")
-        # I need to implement color detection for each sticker on the face
-        #Just has a placeholder showing images are received
-        cube_state[f'face_{i+1}'] = "detected_colors_placeholder"
+        face_colors = process_face(img)
+        logger.info(f"Detected colours for face {i+1}: {face_colors}")
+        # Storing colours in a list
+        cube_state[f'face_{i+1}'] = face_colors
     return cube_state
 
 @app.post("/api/solve")
@@ -31,11 +35,35 @@ async def solve_cube(files: List[UploadFile] = File(...)):
 
     logger.info(f"Received {len(files)} files.")
     images = []
-    for file in files:
+    for i, file in enumerate(files):
         logger.info(f" - Filename: {file.filename}, Content-Type: {file.content_type}")
         image_data = await file.read()
-        nparr = np.frombuffer(image_data, np.uint8)
-        images.append(cv2.imdecode(nparr, cv2.IMREAD_COLOR))
+        img = None
+
+        # Try to decode as HEIC/HEIF first (as i upload the images from my iPhone)
+        try:
+            heif_file = pillow_heif.read_heif(io.BytesIO(image_data))
+            image = Image.frombytes(heif_file.mode, heif_file.size, heif_file.data, "raw")
+
+            # Convert to BGR for OpenCV
+            img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+            logger.info(f"Successfully decoded HEIC image: {file.filename}")
+        except pillow_heif.HeifError:
+            
+            # If it's not HEIC, try decoding with OpenCV
+            logger.info(f"Not a HEIC file, trying standard decoding for: {file.filename}")
+            nparr = np.frombuffer(image_data, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+
+        if img is None:
+            logger.error(f"Failed to decode image: {file.filename}")
+            raise HTTPException(status_code=400, detail=f"Could not decode image: {file.filename}. It may be corrupted or in an unsupported format.")
+        
+        # If image has an alpha channel, convert it to BGR
+        if len(img.shape) == 3 and img.shape[2] == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+
+        images.append(img)
 
     cube_state = detect_cube_state(images)
     logger.info(f"Detected cube state: {cube_state}")
