@@ -9,7 +9,8 @@ import cv2
 import numpy as np
 from PIL import Image
 import pillow_heif
-from .image_processing import process_face
+from .image_processing import process_face, get_color_name
+from .solver import solve_with_kociemba
 
 # Logging to see feedback in terminal
 logging.basicConfig(level=logging.INFO)
@@ -80,10 +81,15 @@ async def solve_cube(files: List[UploadFile] = File(...)):
     cube_state = detect_cube_state(images)
     logger.info(f"Detected cube state: {cube_state}")
 
-    # TODO: Pass the cube_state to a solver algorithm.
-    dummy_solution = ["R", "U", "R'", "U'", "R'", "F", "R2", "U'", "R'", "U'", "R", "U", "R'", "F'"]
-
-    return {"solution": dummy_solution}
+    try:
+        # Pass cube_state to solver algorithm
+        solution = solve_with_kociemba(cube_state)
+        # The solver returns a single string and splits it into a list of moves
+        solution_moves = solution.split()
+        return {"solution": solution_moves}
+    except Exception as e:
+        logger.error(f"Error during solving: {e}")
+        raise HTTPException(status_code=400, detail=f"Could not solve the cube. Error: {e}. Please check if all faces are scanned correctly...")
 
 @app.get("/")
 def read_root():
