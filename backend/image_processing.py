@@ -48,25 +48,27 @@ def process_face(image: np.ndarray) -> Tuple[List[str], np.ndarray]:
     debug_image = image.copy()
     sticker_colors = []
 
-    # Simplified grid detection. Assumes the cube face is centred for now
-    # Also assumes it takes up most of the image... 
+    # Improved grid detection here, assuming the cube face is centered
     # Later I will use a different way to find the grid, maybe edge detection
+    CUBE_AREA_RATIO = 0.6
+    roi_width = int(width * CUBE_AREA_RATIO)
+    roi_height = int(height * CUBE_AREA_RATIO)
+    roi_x_start = (width - roi_width) // 2
+    roi_y_start = (height - roi_height) // 2
 
-    # 3x3 grid and sample the center of each cell
-    sticker_size_h = height // 6
-    sticker_size_w = width // 6
+    sticker_size = min(roi_width, roi_height) // 6
 
     for row in range(3):
         for col in range(3):
-            # Calculate the center of each cell in a 3x3 grid
-            center_y = int((row + 0.5) * height / 3)
-            center_x = int((col + 0.5) * width / 3)
+            # Calculate the center of each cell
+            center_x = roi_x_start + int((col + 0.5) * roi_width / 3)
+            center_y = roi_y_start + int((row + 0.5) * roi_height / 3)
 
             # Define small region of interest around center
-            y1 = max(0, center_y - sticker_size_h // 2)
-            y2 = min(height, center_y + sticker_size_h // 2)
-            x1 = max(0, center_x - sticker_size_w // 2)
-            x2 = min(width, center_x + sticker_size_w // 2)
+            y1 = max(0, center_y - sticker_size // 2)
+            y2 = min(height, center_y + sticker_size // 2)
+            x1 = max(0, center_x - sticker_size // 2)
+            x2 = min(width, center_x + sticker_size // 2)
 
             roi = image[y1:y2, x1:x2]
             dominant_color = get_dominant_color(roi)
