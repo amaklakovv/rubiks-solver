@@ -41,10 +41,11 @@ def get_color_name(hsv_color: Tuple[int, int, int]) -> str:
 
     return "unknown"
 
-def process_face(image: np.ndarray) -> List[str]:
+def process_face(image: np.ndarray) -> Tuple[List[str], np.ndarray]:
 
     # Processes a single face image to detect the colors of its 9 stickers, returns a list of colour names.
     height, width, _ = image.shape
+    debug_image = image.copy()
     sticker_colors = []
 
     # Simplified grid detection. Assumes the cube face is centred for now
@@ -72,4 +73,9 @@ def process_face(image: np.ndarray) -> List[str]:
             color_name = get_color_name(dominant_color)
             sticker_colors.append(color_name)
 
-    return sticker_colors
+            # Draw a rectangle on the debug image to show where we looked
+            cv2.rectangle(debug_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            # Put the detected color name on the image
+            cv2.putText(debug_image, color_name, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+    return sticker_colors, debug_image

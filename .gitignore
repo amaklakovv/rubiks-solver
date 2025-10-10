@@ -1,4 +1,5 @@
 images/
+debug_images/
 
 venv/
 __pycache__/
