@@ -5,41 +5,41 @@ from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
 
-# Define the standard Rubik's Cube colors in bgr format and names, values might need tuning based on lighting...
+# Rubik's Cube colours in HSV format
+# H: 0-179, S: 0-255, V: 0-255
 COLOR_MAP = {
-    "white": ([180, 180, 180], [255, 255, 255]),
-    "yellow": ([0, 180, 180], [80, 255, 255]),
-    "blue": ([180, 0, 0], [255, 100, 100]),
-    "green": ([0, 180, 0], [100, 255, 100]),
-    "red": ([0, 0, 180], [100, 100, 255]),
-    "orange": ([0, 100, 200], [100, 180, 255]),
+    "red": [([0, 120, 70], [10, 255, 255]), ([170, 120, 70], [179, 255, 255])],
+    "orange": ([10, 120, 70], [25, 255, 255]),
+    "yellow": ([26, 120, 70], [34, 255, 255]),
+    "green": ([35, 120, 70], [85, 255, 255]),
+    "blue": ([86, 120, 70], [128, 255, 255]),
+    "white": ([0, 0, 180], [179, 80, 255]),
 }
 
 def get_dominant_color(image_roi: np.ndarray) -> Tuple[int, int, int]:
+  
+    # Calculates the dominant HSV color in a given image region of interest
+    hsv_roi = cv2.cvtColor(image_roi, cv2.COLOR_BGR2HSV)
+    h_median = np.median(hsv_roi[:, :, 0])
+    s_median = np.median(hsv_roi[:, :, 1])
+    v_median = np.median(hsv_roi[:, :, 2])
+    return int(h_median), int(s_median), int(v_median)
 
-    # Finds the dominant colour in a small image region by averaging the colour, returns as average BGR colour
-    # Calculate the median colour for each channel, using median to reduce the effect of outliers
-    b_median = np.median(image_roi[:, :, 0])
-    g_median = np.median(image_roi[:, :, 1])
-    r_median = np.median(image_roi[:, :, 2])
-    return int(b_median), int(g_median), int(r_median)
+def get_color_name(hsv_color: Tuple[int, int, int]) -> str:
+    """Finds the closest color name for a given HSV color."""
+    h, s, v = hsv_color
+ 
+    for name, ranges in COLOR_MAP.items():
+        # Ensure ranges is always a list of ranges
+        if not isinstance(ranges, list):
+            ranges = [ranges]
+        
+        for lower, upper in ranges:
+            # Check if the color is within the current range
+            if lower[0] <= h <= upper[0] and lower[1] <= s <= upper[1] and lower[2] <= v <= upper[2]:
+                return name
 
-def get_color_name(bgr_color: Tuple[int, int, int]) -> str:
-    # Finds the closest colour name for a given BGR colour, returns the closest colour as a string
-    min_dist = float('inf')
-    closest_color = "unknown"
-
-    # Using a simple Euclidean distance in BGR space. I think I might consider converting to a different colour space?
-    for name, (lower, upper) in COLOR_MAP.items():
-        # Use the center of the range for distance calculation
-        color_center = np.array([(l+u)/2 for l, u in zip(lower, upper)])
-        dist = np.linalg.norm(np.array(bgr_color) - color_center)
-
-        if dist < min_dist:
-            min_dist = dist
-            closest_color = name
-
-    return closest_color
+    return "unknown"
 
 def process_face(image: np.ndarray) -> List[str]:
 
@@ -52,14 +52,14 @@ def process_face(image: np.ndarray) -> List[str]:
     # Later I will use a different way to find the grid, maybe edge detection
 
     # 3x3 grid and sample the center of each cell
-    sticker_size_h = height // 5
-    sticker_size_w = width // 5
+    sticker_size_h = height // 6
+    sticker_size_w = width // 6
 
     for row in range(3):
         for col in range(3):
-            # Centre of grid cells
-            center_y = int((row * 2 + 1.5) * height / 6)
-            center_x = int((col * 2 + 1.5) * width / 6)
+            # Calculate the center of each cell in a 3x3 grid
+            center_y = int((row + 0.5) * height / 3)
+            center_x = int((col + 0.5) * width / 3)
 
             # Define small region of interest around center
             y1 = max(0, center_y - sticker_size_h // 2)
