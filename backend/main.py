@@ -3,7 +3,7 @@ from typing import List
 from typing import Dict, Any
 import io
 import logging
-import os
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 # Directory for debug images to see where the script is looking
-DEBUG_DIR = "debug_images"
-os.makedirs(DEBUG_DIR, exist_ok=True)
+DEBUG_DIR = Path("debug_images")
+DEBUG_DIR.mkdir(exist_ok=True)
 
 def detect_cube_state(images: List[np.ndarray]) -> Dict[str, Any]:
 
@@ -32,7 +32,7 @@ def detect_cube_state(images: List[np.ndarray]) -> Dict[str, Any]:
         logger.info(f"Detected colours for face {i+1}: {face_colors}")
         
         # Save the debug image to see where the algorithm is sampling
-        debug_image_path = os.path.join(DEBUG_DIR, f"face_{i+1}_debug.png")
+        debug_image_path = DEBUG_DIR / f"face_{i+1}_debug.png"
         cv2.imwrite(debug_image_path, debug_image)
         logger.info(f"Saved debug image to {debug_image_path}")
 

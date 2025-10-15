@@ -1,20 +1,32 @@
 import cv2
 import numpy as np
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, NamedTuple
 
 logger = logging.getLogger(__name__)
 
-# Rubik's Cube colours in HSV format
-# H: 0-179, S: 0-255, V: 0-255
-COLOR_MAP = {
-    "red": [([0, 120, 70], [10, 255, 255]), ([170, 120, 70], [179, 255, 255])],
-    "orange": ([10, 120, 70], [25, 255, 255]),
-    "yellow": ([26, 120, 70], [34, 255, 255]),
-    "green": ([35, 120, 70], [85, 255, 255]),
-    "blue": ([86, 120, 70], [128, 255, 255]),
-    "white": ([0, 0, 180], [179, 80, 255]),
-}
+class ColorRange(NamedTuple):
+    name: str
+    hsv_lower: np.ndarray
+    hsv_upper: np.ndarray
+
+# Rubik's Cube colours in HSV format (H: 0-179, S: 0-255, V: 0-255)
+# Using a list of objects is cleaner for colours like red that wrap around the hue circle
+COLOR_RANGES = [
+    # Red wraps around 0/179 in HSV
+    ColorRange("red", np.array([0, 120, 70]), np.array([10, 255, 255])),
+    ColorRange("red", np.array([170, 120, 70]), np.array([179, 255, 255])),
+    ColorRange("orange", np.array([11, 120, 70]), np.array([20, 255, 255])),
+    ColorRange("yellow", np.array([21, 120, 70]), np.array([34, 255, 255])),
+    ColorRange("green", np.array([35, 120, 70]), np.array([85, 255, 255])),
+    ColorRange("blue", np.array([86, 120, 70]), np.array([128, 255, 255])),
+    
+    # White has low saturation and high value
+    ColorRange("white", np.array([0, 0, 180]), np.array([179, 80, 255])),
+    
+    # Black or dark can be defined by low value
+    # ColorRange("black", np.array([0, 0, 0]), np.array([179, 255, 70])),
+]
 
 def get_dominant_color(image_roi: np.ndarray) -> Tuple[int, int, int]:
   
@@ -28,16 +40,12 @@ def get_dominant_color(image_roi: np.ndarray) -> Tuple[int, int, int]:
 def get_color_name(hsv_color: Tuple[int, int, int]) -> str:
     """Finds the closest color name for a given HSV color."""
     h, s, v = hsv_color
- 
-    for name, ranges in COLOR_MAP.items():
-        # Ensure ranges is always a list of ranges
-        if not isinstance(ranges, list):
-            ranges = [ranges]
-        
-        for lower, upper in ranges:
-            # Check if the color is within the current range
-            if lower[0] <= h <= upper[0] and lower[1] <= s <= upper[1] and lower[2] <= v <= upper[2]:
-                return name
+
+    for color in COLOR_RANGES:
+        if (color.hsv_lower[0] <= h <= color.hsv_upper[0] and
+            color.hsv_lower[1] <= s <= color.hsv_upper[1] and
+            color.hsv_lower[2] <= v <= color.hsv_upper[2]):
+            return color.name
 
     return "unknown"
 
